@@ -13,9 +13,12 @@ export type SettingsProps = {
   albumArtQuality: number
   zipName: string
   trackName: string
+  createZip: boolean
+  rawDownload: boolean
+  maxConcurrentDownloads: number
 }
 
-export const nameVariables: string[] = ['artists', 'name', 'year', 'duration']
+export const nameVariables: string[] = ['artists', 'name', 'year', 'duration', 'track_number', 'explicit']
 
 const isValidSettings = (obj: any): obj is SettingsProps => {
   return (
@@ -32,7 +35,12 @@ const isValidSettings = (obj: any): obj is SettingsProps => {
       typeof obj.albumArtQuality === 'number' &&
       obj.albumArtQuality >= 0.1 &&
       obj.albumArtQuality <= 1,
-    typeof obj.zipName === 'string' && typeof obj.trackName === 'string'
+    typeof obj.zipName === 'string' && typeof obj.trackName === 'string' &&
+    typeof obj.createZip === 'boolean' &&
+    typeof obj.rawDownload === 'boolean' &&
+    typeof obj.maxConcurrentDownloads === 'number' &&
+    obj.maxConcurrentDownloads >= 1 &&
+    obj.maxConcurrentDownloads <= 10
   )
 }
 
@@ -56,7 +64,10 @@ export const defaultSettings: SettingsProps = {
   albumArtSize: 3600,
   albumArtQuality: 1,
   zipName: '{artists} - {name}',
-  trackName: '{artists} - {name}'
+  trackName: '{track_number} - {name}{explicit}',
+  createZip: false,
+  rawDownload: false,
+  maxConcurrentDownloads: 3
 }
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

@@ -13,6 +13,69 @@ export type FFmpegType = {
   load: ({ signal }: { signal: AbortSignal }) => Promise<any>
 }
 
+// FFmpeg concurrency management with single instance and operation queue
+class FFmpegQueue {
+  private queue: Array<() => Promise<any>>
+  private processing: boolean
+  private ffmpegInstance: FFmpegType | null
+
+  constructor() {
+    this.queue = []
+    this.processing = false
+    this.ffmpegInstance = null
+  }
+
+  async enqueue<T>(operation: (ffmpeg: FFmpegType) => Promise<T>, signal?: AbortSignal): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const wrappedOperation = async () => {
+        try {
+          // Ensure FFmpeg is loaded
+          if (!this.ffmpegInstance) {
+            const { createFFmpeg } = FFmpeg
+            this.ffmpegInstance = createFFmpeg({ log: false })
+            if (this.ffmpegInstance && !this.ffmpegInstance.isLoaded()) {
+              await this.ffmpegInstance.load({ signal: signal || new AbortController().signal })
+            }
+          }
+          
+          if (!this.ffmpegInstance) {
+            throw new Error('Failed to create FFmpeg instance')
+          }
+          
+          const result = await operation(this.ffmpegInstance)
+          resolve(result)
+        } catch (error) {
+          reject(error)
+        }
+      }
+
+      this.queue.push(wrappedOperation)
+      this.processQueue()
+    })
+  }
+
+  private async processQueue() {
+    if (this.processing || this.queue.length === 0) {
+      return
+    }
+
+    this.processing = true
+    
+    while (this.queue.length > 0) {
+      const operation = this.queue.shift()!
+      try {
+        await operation()
+      } catch (error) {
+        console.error('FFmpeg operation failed:', error)
+      }
+    }
+    
+    this.processing = false
+  }
+}
+
+const ffmpegQueue = new FFmpegQueue()
+
 export const codecMap = {
   FLAC: {
     extension: 'flac',
@@ -47,39 +110,51 @@ export async function applyMetadata(
   settings: SettingsProps,
   setStatusBar?: React.Dispatch<React.SetStateAction<StatusBarProps>>,
   albumArt?: ArrayBuffer | false,
-  upc?: string
+  upc?: string,
+  signal?: AbortSignal
 ) {
-  const skipRencode =
-    (settings.outputQuality != '5' && settings.outputCodec === 'FLAC') ||
-    (settings.outputQuality === '5' && settings.outputCodec === 'MP3' && settings.bitrate === 320)
-  if (skipRencode && !settings.applyMetadata) return trackBuffer
-  const extension = codecMap[settings.outputCodec].extension
-  if (!skipRencode) {
-    const inputExtension = settings.outputQuality === '5' ? 'mp3' : 'flac'
-    if (setStatusBar)
-      setStatusBar((prev) => {
-        if (prev.processing) {
-          return { ...prev, description: 'Re-encoding track...' }
-        } else return prev
-      })
-    await ffmpeg.FS('writeFile', 'input.' + inputExtension, new Uint8Array(trackBuffer))
-    await ffmpeg.run(
-      '-i',
-      'input.' + inputExtension,
-      '-c:a',
-      codecMap[settings.outputCodec].codec,
-      settings.bitrate ? '-b:a' : '',
-      settings.bitrate ? settings.bitrate + 'k' : '',
-      ['OPUS'].includes(settings.outputCodec) ? '-vbr' : '',
-      ['OPUS'].includes(settings.outputCodec) ? 'on' : '',
-      'output.' + extension
-    )
-    trackBuffer = await ffmpeg.FS('readFile', 'output.' + extension)
-    await ffmpeg.FS('unlink', 'input.' + inputExtension)
-    await ffmpeg.FS('unlink', 'output.' + extension)
+  // Use the queue-based approach for safe concurrent FFmpeg operations
+  return ffmpegQueue.enqueue(async (ffmpegInstance: FFmpegType) => {
+    // Generate unique ID for this operation to avoid file conflicts
+    const operationId = Math.random().toString(36).substring(2, 15)
+    
+    const skipRencode =
+      (settings.outputQuality != '5' && settings.outputCodec === 'FLAC') ||
+      (settings.outputQuality === '5' && settings.outputCodec === 'MP3' && settings.bitrate === 320)
+    if (skipRencode && !settings.applyMetadata) {
+      return trackBuffer
+    }
+    const extension = codecMap[settings.outputCodec].extension
+    if (!skipRencode) {
+      const inputExtension = settings.outputQuality === '5' ? 'mp3' : 'flac'
+      if (setStatusBar)
+        setStatusBar((prev) => {
+          if (prev.processing) {
+            return { ...prev, description: 'Re-encoding track...' }
+          } else return prev
+        })
+      await ffmpegInstance.FS('writeFile', `input_${operationId}.${inputExtension}`, new Uint8Array(trackBuffer))
+      await ffmpegInstance.run(
+        '-i',
+        `input_${operationId}.${inputExtension}`,
+        '-c:a',
+        codecMap[settings.outputCodec].codec,
+        settings.bitrate ? '-b:a' : '',
+        settings.bitrate ? settings.bitrate + 'k' : '',
+        ['OPUS'].includes(settings.outputCodec) ? '-vbr' : '',
+        ['OPUS'].includes(settings.outputCodec) ? 'on' : '',
+        `output_${operationId}.${extension}`
+      )
+      trackBuffer = await ffmpegInstance.FS('readFile', `output_${operationId}.${extension}`)
+      await ffmpegInstance.FS('unlink', `input_${operationId}.${inputExtension}`)
+      await ffmpegInstance.FS('unlink', `output_${operationId}.${extension}`)
+    }
+  if (!settings.applyMetadata) {
+    return trackBuffer
   }
-  if (!settings.applyMetadata) return trackBuffer
-  if (settings.outputCodec === 'WAV') return trackBuffer
+  if (settings.outputCodec === 'WAV') {
+    return trackBuffer
+  }
   if (setStatusBar) setStatusBar((prev) => ({ ...prev, description: 'Applying metadata...' }))
   const artists = resultData.album.artists === undefined ? [resultData.performer] : resultData.album.artists
   let metadata = `;FFMETADATA1`
@@ -101,9 +176,9 @@ export async function applyMetadata(
   if (resultData.isrc) metadata += `\nisrc=${resultData.isrc}`
   if (upc) metadata += `\nbarcode=${upc}`
   if (resultData.track_number) metadata += `\ntrack=${resultData.track_number}`
-  await ffmpeg.FS('writeFile', 'input.' + extension, new Uint8Array(trackBuffer))
+  await ffmpegInstance.FS('writeFile', `input_${operationId}.${extension}`, new Uint8Array(trackBuffer))
   const encoder = new TextEncoder()
-  await ffmpeg.FS('writeFile', 'metadata.txt', encoder.encode(metadata))
+  await ffmpegInstance.FS('writeFile', `metadata_${operationId}.txt`, encoder.encode(metadata))
   if (!(albumArt === false)) {
     if (!albumArt) {
       const albumArtURL = await resizeImage(
@@ -116,9 +191,9 @@ export async function applyMetadata(
       } else albumArt = false
     }
     if (albumArt)
-      await ffmpeg.FS(
+      await ffmpegInstance.FS(
         'writeFile',
-        'albumArt.jpg',
+        `albumArt_${operationId}.jpg`,
         new Uint8Array(
           albumArt
             ? albumArt
@@ -136,29 +211,29 @@ export async function applyMetadata(
       )
   }
 
-  await ffmpeg.run(
+  await ffmpegInstance.run(
     '-i',
-    'input.' + extension,
+    `input_${operationId}.${extension}`,
     '-i',
-    'metadata.txt',
+    `metadata_${operationId}.txt`,
     '-map_metadata',
     '1',
     '-codec',
     'copy',
-    'secondInput.' + extension
+    `secondInput_${operationId}.${extension}`
   )
   if (['WAV', 'OPUS'].includes(settings.outputCodec) || albumArt === false) {
-    const output = await ffmpeg.FS('readFile', 'secondInput.' + extension)
-    ffmpeg.FS('unlink', 'input.' + extension)
-    ffmpeg.FS('unlink', 'metadata.txt')
-    ffmpeg.FS('unlink', 'secondInput.' + extension)
+    const output = await ffmpegInstance.FS('readFile', `secondInput_${operationId}.${extension}`)
+    ffmpegInstance.FS('unlink', `input_${operationId}.${extension}`)
+    ffmpegInstance.FS('unlink', `metadata_${operationId}.txt`)
+    ffmpegInstance.FS('unlink', `secondInput_${operationId}.${extension}`)
     return output
   }
-  await ffmpeg.run(
+  await ffmpegInstance.run(
     '-i',
-    'secondInput.' + extension,
+    `secondInput_${operationId}.${extension}`,
     '-i',
-    'albumArt.jpg',
+    `albumArt_${operationId}.jpg`,
     '-c',
     'copy',
     '-map',
@@ -167,14 +242,16 @@ export async function applyMetadata(
     '1',
     '-disposition:v:0',
     'attached_pic',
-    'output.' + extension
+    `output_${operationId}.${extension}`
   )
-  const output = await ffmpeg.FS('readFile', 'output.' + extension)
-  ffmpeg.FS('unlink', 'input.' + extension)
-  ffmpeg.FS('unlink', 'metadata.txt')
-  ffmpeg.FS('unlink', 'secondInput.' + extension)
-  ffmpeg.FS('unlink', 'albumArt.jpg')
+  const output = await ffmpegInstance.FS('readFile', `output_${operationId}.${extension}`)
+  ffmpegInstance.FS('unlink', `input_${operationId}.${extension}`)
+  ffmpegInstance.FS('unlink', `metadata_${operationId}.txt`)
+  ffmpegInstance.FS('unlink', `secondInput_${operationId}.${extension}`)
+  ffmpegInstance.FS('unlink', `albumArt_${operationId}.jpg`)
+  ffmpegInstance.FS('unlink', `output_${operationId}.${extension}`)
   return output
+  }, signal)
 }
 
 export async function fixMD5Hash(

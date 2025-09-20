@@ -54,48 +54,79 @@ const DownloadButton = React.forwardRef<HTMLButtonElement, DownloadAlbumButtonPr
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem
-              onClick={() => {
-                createDownloadJob(
-                  result,
-                  setStatusBar,
-                  ffmpegState,
-                  settings,
-                  toast,
-                  fetchedAlbumData,
-                  setFetchedAlbumData
-                )
-                toast({ title: `Added '${formatTitle(result)}'`, description: 'The album has been added to the queue' })
-              }}
-              className='flex items-center gap-2'
-            >
-              <FileArchiveIcon className='!size-4' />
-              <p>ZIP Archive</p>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={async () => {
-                const albumData = await getFullAlbumInfo(fetchedAlbumData, setFetchedAlbumData, result)
-                for (const track of albumData.tracks.items) {
-                  if (track.streamable) {
-                    await createDownloadJob(
-                      { ...track, album: albumData },
+            {settings.createZip ? (
+              // Show both ZIP and individual download options when ZIP is enabled
+              <>
+                <DropdownMenuItem
+                  onClick={() => {
+                    createDownloadJob(
+                      result,
                       setStatusBar,
                       ffmpegState,
                       settings,
                       toast,
-                      albumData,
+                      fetchedAlbumData,
                       setFetchedAlbumData
                     )
-                    await new Promise((resolve) => setTimeout(resolve, 100))
+                    toast({ title: `Added '${formatTitle(result)}'`, description: 'The album has been added to the queue' })
+                  }}
+                  className='flex items-center gap-2'
+                >
+                  <FileArchiveIcon className='!size-4' />
+                  <p>ZIP Archive</p>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    const albumData = await getFullAlbumInfo(fetchedAlbumData, setFetchedAlbumData, result)
+                    for (const track of albumData.tracks.items) {
+                      if (track.streamable) {
+                        await createDownloadJob(
+                          { ...track, album: albumData },
+                          setStatusBar,
+                          ffmpegState,
+                          settings,
+                          toast,
+                          albumData,
+                          setFetchedAlbumData
+                        )
+                        await new Promise((resolve) => setTimeout(resolve, 100))
+                      }
+                    }
+                    toast({ title: `Added '${formatTitle(result)}'`, description: 'The album has been added to the queue' })
+                  }}
+                  className='flex items-center gap-2'
+                >
+                  <MusicIcon className='!size-4' />
+                  <p>Individual Files</p>
+                </DropdownMenuItem>
+              </>
+            ) : (
+              // Show only direct download option when ZIP is disabled
+              <DropdownMenuItem
+                onClick={async () => {
+                  const albumData = await getFullAlbumInfo(fetchedAlbumData, setFetchedAlbumData, result)
+                  for (const track of albumData.tracks.items) {
+                    if (track.streamable) {
+                      await createDownloadJob(
+                        { ...track, album: albumData },
+                        setStatusBar,
+                        ffmpegState,
+                        settings,
+                        toast,
+                        albumData,
+                        setFetchedAlbumData
+                      )
+                      await new Promise((resolve) => setTimeout(resolve, 100))
+                    }
                   }
-                }
-                toast({ title: `Added '${formatTitle(result)}'`, description: 'The album has been added to the queue' })
-              }}
-              className='flex items-center gap-2'
-            >
-              <MusicIcon className='!size-4' />
-              <p>No ZIP Archive</p>
-            </DropdownMenuItem>
+                  toast({ title: `Added '${formatTitle(result)}'`, description: 'The album has been added to the queue' })
+                }}
+                className='flex items-center gap-2'
+              >
+                <DownloadIcon className='!size-4' />
+                <p>Download Album</p>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </>

@@ -2,6 +2,7 @@ import axios from 'axios'
 import Image from 'next/image'
 import React, { useEffect, useState } from 'react'
 import ReleaseCard from './release-card'
+import SimilarArtists from './similar-artists'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog'
 import { Disc3Icon, DiscAlbumIcon, DownloadIcon, LucideIcon, RadioTowerIcon, UsersIcon } from 'lucide-react'
@@ -16,6 +17,7 @@ import { useSettings } from '@/lib/settings-provider'
 import { useStatusBar } from '@/lib/status-bar/context'
 import { useTheme } from 'next-themes'
 import { useToast } from '@/hooks/use-toast'
+import { BaseDialogProps, handleApiError, useAsyncOperation } from '@/lib/component-patterns'
 
 export type CategoryType = {
   label: string
@@ -46,60 +48,81 @@ export const artistReleaseCategories: CategoryType[] = [
   }
 ]
 
-const ArtistDialog = ({
-  open,
-  setOpen,
-  artist
-}: {
-  open: boolean
-  setOpen: (open: boolean) => void
+interface ArtistDialogProps extends BaseDialogProps {
   artist: QobuzArtist
+  onArtistChange?: (artist: QobuzArtist) => void
+}
+
+const ArtistDialog: React.FC<ArtistDialogProps> = ({
+  open,
+  onOpenChange,
+  artist,
+  onArtistChange
 }) => {
   const [artistResults, setArtistResults] = useState<QobuzArtistResults | null>(null)
-  const [, setSearching] = useState(false)
+  const [currentArtist, setCurrentArtist] = useState<QobuzArtist>(artist)
 
+  // Reset data when artist changes
+  useEffect(() => {
+    if (artist.id !== currentArtist.id) {
+      setCurrentArtist(artist)
+      setArtistResults(null)
+    }
+  }, [artist, currentArtist.id])
+
+  const handleArtistSelect = (newArtist: QobuzArtist) => {
+    setCurrentArtist(newArtist)
+    setArtistResults(null)
+    onArtistChange?.(newArtist)
+  }
+
+  const { loading: artistLoading, execute: executeArtistFetch } = useAsyncOperation()
+  
   const getArtistData = async () => {
     if (artistResults) return
-    try {
-      const response = await axios.get(`/api/get-artist`, { params: { artist_id: artist.id } })
+    
+    await executeArtistFetch(async () => {
+      const response = await axios.get(`/api/get-artist`, { params: { artist_id: currentArtist.id } })
       setArtistResults(parseArtistData(response.data.data))
-    } catch {
-      toast({ title: 'Error', description: 'Could not fetch artist data, check your token' })
-    }
+    })
   }
+
+  const { loading: fetchMoreLoading, execute: executeFetchMore } = useAsyncOperation()
 
   const fetchMore = async (
     searchField: 'album' | 'epSingle' | 'live' | 'compilation',
     artistResults: QobuzArtistResults
   ) => {
-    setSearching(true)
-    const response = await axios.get(`/api/get-releases`, {
-      params: {
-        artist_id: artist.id,
-        offset: artistResults!.artist.releases[searchField]!.items.length,
-        limit: 10,
-        release_type: searchField
-      }
-    })
-    const newReleases = [
-      ...artistResults!.artist.releases[searchField].items,
-      ...response.data.data.items.map((release: any) => parseArtistAlbumData(release))
-    ]
-    setArtistResults({
-      ...artistResults!,
-      artist: {
-        ...artistResults!.artist,
-        releases: {
-          ...artistResults!.artist.releases,
-          [searchField]: {
-            ...artistResults!.artist.releases[searchField],
-            items: newReleases,
-            has_more: response.data.data.has_more
+    await executeFetchMore(async () => {
+      const response = await axios.get(`/api/get-releases`, {
+        params: {
+          artist_id: currentArtist.id,
+          offset: artistResults.artist.releases[searchField].items.length,
+          limit: 10,
+          release_type: searchField
+        }
+      })
+      
+      const newReleases = [
+        ...artistResults.artist.releases[searchField].items,
+        ...response.data.data.items.map((release: any) => parseArtistAlbumData(release))
+      ]
+      
+      setArtistResults({
+        ...artistResults,
+        artist: {
+          ...artistResults.artist,
+          releases: {
+            ...artistResults.artist.releases,
+            [searchField]: {
+              ...artistResults.artist.releases[searchField],
+              items: newReleases,
+              has_more: response.data.data.has_more
+            }
           }
         }
-      }
+      })
     })
-    setSearching(false)
   }
 
   useEffect(() => {
@@ -111,24 +134,24 @@ const ArtistDialog = ({
   const { settings } = useSettings()
   const { ffmpegState } = useFFmpeg()
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='w-[1000px] max-w-[90%] md:max-w-[80%] overflow-hidden'>
         <div className='flex gap-3 overflow-hidden'>
           <div className='relative shrink-0 aspect-square min-w-[100px] min-h-[100px] rounded-sm overflow-hidden'>
-            {(artist.image?.small || artistResults?.artist.images.portrait) && (
+            {(currentArtist.image?.small || artistResults?.artist.images.portrait) && (
               <Skeleton className='absolute aspect-square w-full h-full' />
             )}
-            {artist.image?.small || artistResults?.artist.images.portrait ? (
+            {currentArtist.image?.small || artistResults?.artist.images.portrait ? (
               <Image
                 fill
                 src={
-                  artist.image?.small ||
+                  currentArtist.image?.small ||
                   'https://static.qobuz.com/images/artists/covers/medium/' +
                     artistResults?.artist.images.portrait.hash +
                     '.' +
                     artistResults?.artist.images.portrait.format
                 }
-                alt={artist.name}
+                alt={currentArtist.name}
                 className='text-[0px] absolute aspect-square w-full h-full object-cover'
               />
             ) : (
@@ -140,15 +163,15 @@ const ArtistDialog = ({
 
           <div className='flex w-full flex-col justify-between overflow-hidden'>
             <div className='space-y-1.5 overflow-visible'>
-              <DialogTitle title={artist.name} className='truncate overflow-visible py-0.5 pr-2'>
-                {artist.name}
+              <DialogTitle title={currentArtist.name} className='truncate overflow-visible py-0.5 pr-2'>
+                {currentArtist.name}
               </DialogTitle>
-              {artist.albums_count && (
+              {currentArtist.albums_count && (
                 <DialogDescription
-                  title={artist.albums_count + ' ' + (artist.albums_count !== 1 ? 'releases' : 'release')}
+                  title={currentArtist.albums_count + ' ' + (currentArtist.albums_count !== 1 ? 'releases' : 'release')}
                   className='truncate overflow-visible '
                 >
-                  {artist.albums_count} {artist.albums_count > 1 ? 'releases' : 'release'}
+                  {currentArtist.albums_count} {currentArtist.albums_count > 1 ? 'releases' : 'release'}
                 </DialogDescription>
               )}
             </div>
@@ -186,13 +209,23 @@ const ArtistDialog = ({
               <div className='flex gap-4 flex-col'>
                 {artistReleaseCategories.map((category) => (
                   <ArtistReleaseSection
-                    artist={artist}
+                    artist={currentArtist}
+                    currentArtist={currentArtist}
                     artistResults={artistResults}
                     setArtistResults={setArtistResults}
                     category={category}
                     key={category.value}
                   />
                 ))}
+                
+                {/* Similar Artists Section */}
+                <div className='mt-6'>
+                  <SimilarArtists 
+                    artist={currentArtist}
+                    onArtistSelect={handleArtistSelect}
+                    className='border-0 bg-transparent p-0'
+                  />
+                </div>
               </div>
             </motion.div>
           )}
@@ -205,11 +238,13 @@ const ArtistDialog = ({
 
 const ArtistReleaseSection = ({
   artist,
+  currentArtist,
   artistResults,
   setArtistResults,
   category
 }: {
   artist: QobuzArtist
+  currentArtist: QobuzArtist
   artistResults: QobuzArtistResults | null
   setArtistResults: React.Dispatch<React.SetStateAction<QobuzArtistResults | null>>
   category: CategoryType
@@ -223,14 +258,23 @@ const ArtistReleaseSection = ({
     artistResults: QobuzArtistResults
   ) => {
     setSearching(true)
+    
     const response = await axios.get(`/api/get-releases`, {
       params: {
-        artist_id: artist.id,
+        artist_id: currentArtist.id,
         offset: artistResults!.artist.releases[searchField]!.items.length,
         limit: 10,
         release_type: category.value
       }
     })
+    
+    console.log('📊 Internal API Full Response Data - GetReleases:', {
+      endpoint: '/api/get-releases',
+      artist_id: currentArtist.id,
+      responseData: response.data,
+      timestamp: new Date().toISOString()
+    })
+    
     const newReleases = [
       ...artistResults!.artist.releases[searchField].items,
       ...response.data.data.items.map((release: any) => parseArtistAlbumData(release))

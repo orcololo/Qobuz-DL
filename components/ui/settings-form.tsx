@@ -18,14 +18,10 @@ import { nameVariables, SettingsProps, useSettings } from '@/lib/settings-provid
 import { Separator } from './separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Slider } from './slider'
-
-const losslessCodecs = ['FLAC', 'ALAC', 'WAV']
-
-const qualityMap = {
-  '27': [24, 192],
-  '7': [24, 96],
-  '6': [16, 44.1]
-}
+import { LOSSLESS_CODECS, QUALITY_MAP, APP_CONSTANTS } from '@/lib/constants'
+import { QualitySelector } from './quality-selector'
+import { CodecSelector } from './codec-selector'
+import { NamingSettings } from './naming-settings'
 
 const SettingsForm = () => {
   const { settings, setSettings, resetSettings } = useSettings()
@@ -37,12 +33,12 @@ const SettingsForm = () => {
   useEffect(() => {
     if (!open && bitrateInput.current) {
       let numberInput = parseInt(bitrateInput.current.value)
-      if (isNaN(numberInput)) numberInput = 320
-      if (numberInput > 320) numberInput = 320
-      if (numberInput < 24) numberInput = 320
-      setSettings((prev) => ({ ...prev, bitrate: numberInput || 320 }))
+      if (isNaN(numberInput)) numberInput = APP_CONSTANTS.DEFAULT_BITRATE
+      if (numberInput > APP_CONSTANTS.MAX_BITRATE) numberInput = APP_CONSTANTS.DEFAULT_BITRATE
+      if (numberInput < APP_CONSTANTS.MIN_BITRATE) numberInput = APP_CONSTANTS.DEFAULT_BITRATE
+      setSettings((prev) => ({ ...prev, bitrate: numberInput || APP_CONSTANTS.DEFAULT_BITRATE }))
     }
-  }, [open])
+  }, [open, setSettings])
 
   return (
     <Sheet open={open} onOpenChange={setOpen} modal={true}>
@@ -96,203 +92,16 @@ const SettingsForm = () => {
               <SheetTitle>Output Settings</SheetTitle>
               <SheetDescription>Change the way your music is saved</SheetDescription>
             </div>
-            <div className='space-y-2'>
-              <div className='px-0.5 space-y-2'>
-                <p className='font-medium text-sm'>Zip File Naming</p>
-                <div className='flex gap-2'>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button size='icon' className='aspect-square' variant='outline'>
-                        <InfoIcon />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Zip File Naming</DialogTitle>
-                        <DialogDescription>The variables used in the zip file name</DialogDescription>
-                      </DialogHeader>
-                      <p className='text-xs text-muted-foreground'>An example is {'{artists} - {name}'}</p>
-                      <div className='flex flex-col gap-2'>
-                        {nameVariables.map((variable, index) => (
-                          <div key={index} className='flex text-sm items-center justify-between gap-2'>
-                            <p>
-                              <span className='capitalize'>{variable}</span>{' '}
-                              <span className='text-muted-foreground'>{`{${variable}}`}</span>
-                            </p>
-                            <p>{settings.zipName.includes(variable) ? 'Currently used' : 'Not used'}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <Input
-                    value={settings.zipName}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, zipName: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className='px-0.5 space-y-2'>
-                <p className='font-medium text-sm'>Track File Naming</p>
-                <div className='flex gap-2'>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button size='icon' className='aspect-square' variant='outline'>
-                        <InfoIcon />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Track File Naming</DialogTitle>
-                        <DialogDescription>The variables used in the track file name</DialogDescription>
-                      </DialogHeader>
-                      <p className='text-xs text-muted-foreground'>An example is {'{artists} - {name}'}</p>
-                      <div className='flex flex-col gap-2'>
-                        {nameVariables.map((variable, index) => (
-                          <div key={index} className='flex text-sm items-center justify-between gap-2'>
-                            <p>
-                              <span className='capitalize'>{variable}</span>{' '}
-                              <span className='text-muted-foreground'>{`{${variable}}`}</span>
-                            </p>
-                            <p>{settings.trackName.includes(variable) ? 'Currently used' : 'Not used'}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <Input
-                    value={settings.trackName}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, trackName: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <p className='font-medium text-sm'>Output Codec</p>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant='outline' className='flex gap-2 items-center'>
-                    <p>{settings.outputCodec}</p>
-                    <ChevronDownIcon />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align='start'>
-                  <DropdownMenuRadioGroup
-                    value={settings.outputCodec}
-                    onValueChange={(codec: string) => {
-                      setSettings((settings) => ({ ...settings, outputCodec: codec as SettingsProps['outputCodec'] }))
-                      if (!losslessCodecs.includes(codec)) {
-                        setSettings((settings) => ({
-                          ...settings,
-                          outputQuality: settings.outputCodec === 'OPUS' ? ('6' as const) : ('5' as const),
-                          bitrate: settings.bitrate || 320
-                        }))
-                      } else {
-                        setSettings((settings) => {
-                          if (settings.outputQuality === '5')
-                            return { ...settings, outputQuality: '27' as const, bitrate: undefined }
-                          else return { ...settings, bitrate: undefined }
-                        })
-                      }
-                    }}
-                  >
-                    <DropdownMenuRadioItem value='FLAC'>FLAC (recommended)</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value='WAV'>WAV</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value='ALAC'>ALAC</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value='MP3'>MP3</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value='AAC'>AAC</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value='OPUS'>OPUS</DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            {losslessCodecs.includes(settings.outputCodec) ? (
-              <div className='space-y-2'>
-                <p className='font-medium text-sm'>Max Download Quality</p>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant='outline' className='flex gap-2 items-center'>
-                      {parseQualityHTML(settings.outputQuality)}
-                      <ChevronDownIcon />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align='start'>
-                    <DropdownMenuRadioGroup
-                      value={settings.outputQuality}
-                      onValueChange={(quality: string) => {
-                        setSettings((settings) => ({
-                          ...settings,
-                          outputQuality: quality as SettingsProps['outputQuality']
-                        }))
-                      }}
-                    >
-                      <DropdownMenuRadioItem value={'27'}>
-                        <p>24-bit</p>
-                        <DotIcon />
-                        <p>192kHz</p>
-                      </DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value={'7'}>
-                        <p>24-bit</p>
-                        <DotIcon />
-                        <p>96kHz</p>
-                      </DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value={'6'}>
-                        <p>16-bit</p>
-                        <DotIcon />
-                        <p>44.1kHz</p>
-                      </DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ) : (
-              <>
-                <p className='text-xs text-muted-foreground text-center'>
-                  Lossy codec selected. All music will be downloaded at 320kbps. You can specify a bitrate to rencode to
-                  below.
-                </p>
-                <div className='flex items-center gap-2 w-full justify-center'>
-                  <Input
-                    ref={bitrateInput}
-                    max={320}
-                    min={24}
-                    className='w-fit'
-                    type='number'
-                    defaultValue={settings.bitrate}
-                  />
-                  <p>kbps</p>
-                </div>
-              </>
-            )}
-            <div className='flex items-center gap-2 pt-2'>
-              <div className='flex flex-col'>
-                <p className={cn('font-medium', settings.outputCodec === 'WAV' && 'text-muted-foreground')}>
-                  Apply metadata
-                </p>
-                <p
-                  className={cn(
-                    'text-xs',
-                    settings.outputCodec === 'WAV' ? 'text-muted-background' : 'text-muted-foreground'
-                  )}
-                >
-                  If enabled (default), songs will be tagged with cover art, album information, etc.
-                </p>
-              </div>
-              <Checkbox
-                checked={settings.applyMetadata && settings.outputCodec !== 'WAV'}
-                onCheckedChange={(checked: boolean) =>
-                  setSettings((settings) => ({ ...settings, applyMetadata: checked }))
-                }
-                disabled={settings.outputCodec === 'WAV'}
-              />
-            </div>
-            {settings.outputCodec === 'OPUS' && (
-              <p className='text-xs text-destructive font-semibold text-center'>
-                WARNING: OGG (OPUS) files do not support album art.
-              </p>
-            )}
-            {settings.outputCodec === 'WAV' && (
-              <p className='text-xs text-destructive font-semibold text-center'>
-                WAV files do not support metadata / tags.
-              </p>
-            )}
+            
+            <NamingSettings settings={settings} setSettings={setSettings} />
+            
+            <CodecSelector settings={settings} setSettings={setSettings} bitrateInput={bitrateInput} />
+            
+            <QualitySelector 
+              settings={settings} 
+              setSettings={setSettings} 
+              disabled={settings.rawDownload}
+            />
           </SheetHeader>
           <Separator />
           <SheetHeader>
@@ -308,6 +117,68 @@ const SettingsForm = () => {
                 checked={settings.fixMD5}
                 onCheckedChange={(checked: boolean) => setSettings((settings) => ({ ...settings, fixMD5: checked }))}
               />
+            </div>
+          </SheetHeader>
+          <Separator />
+          <SheetHeader>
+            <div className='flex items-center gap-2'>
+              <div className='flex flex-col'>
+                <p className='font-medium'>Create ZIP files</p>
+                <p className='text-xs text-muted-foreground'>
+                  If enabled, downloads will be packaged as ZIP files. If disabled, files will be saved directly to the downloads folder.
+                </p>
+              </div>
+              <Checkbox
+                checked={settings.createZip}
+                onCheckedChange={(checked: boolean) => setSettings((settings) => ({ ...settings, createZip: checked }))}
+              />
+            </div>
+          </SheetHeader>
+          <Separator />
+          <SheetHeader>
+            <div className='flex items-center gap-2'>
+              <div className='flex flex-col'>
+                <p className='font-medium'>Raw download mode</p>
+                <p className='text-xs text-muted-foreground'>
+                  If enabled, files will be downloaded in their original format with metadata applied but without format conversion. Faster downloads while preserving quality and tags.
+                </p>
+              </div>
+              <Checkbox
+                checked={settings.rawDownload}
+                onCheckedChange={(checked: boolean) => setSettings((settings) => ({ ...settings, rawDownload: checked }))}
+              />
+            </div>
+          </SheetHeader>
+          {settings.rawDownload && (
+            <div className='bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mx-6'>
+              <p className='text-sm font-medium text-blue-800 dark:text-blue-200'>Raw Download Mode Active</p>
+              <p className='text-xs text-blue-700 dark:text-blue-300 mt-1'>
+                Files will be downloaded in original format (FLAC for Hi-Res, MP3 for 320kbps) with metadata applied but without format conversion. 
+                Quality fallback is enabled - lower qualities will be tried if requested quality is unavailable.
+              </p>
+            </div>
+          )}
+          <Separator />
+          <SheetHeader>
+            <div className='flex flex-col items-center gap-2'>
+              <div className='flex flex-col'>
+                <p className='font-medium'>Max Concurrent Downloads</p>
+                <p className='text-xs text-muted-foreground'>
+                  Maximum number of downloads that can run simultaneously. Higher values may improve speed but use more bandwidth and resources.
+                </p>
+              </div>
+              <Slider
+                min={1}
+                max={10}
+                step={1}
+                value={[settings.maxConcurrentDownloads]}
+                onValueChange={(value: number[]) =>
+                  setSettings((settings) => ({ ...settings, maxConcurrentDownloads: value[0] }))
+                }
+              />
+              <p>
+                {settings.maxConcurrentDownloads} download{settings.maxConcurrentDownloads !== 1 ? 's' : ''} at once
+              </p>
             </div>
           </SheetHeader>
           <Separator />
@@ -384,9 +255,9 @@ export const parseQualityHTML = (quality: string) => {
   try {
     return (
       <div className='flex items-center'>
-        <p>{qualityMap[quality as keyof typeof qualityMap][0]}-bit</p>
+        <p>{QUALITY_MAP[quality as keyof typeof QUALITY_MAP][0]}-bit</p>
         <DotIcon className='min-h-[24px] min-w-[24px]' size={24} />
-        <p>{qualityMap[quality as keyof typeof qualityMap][1]} kHz</p>
+        <p>{QUALITY_MAP[quality as keyof typeof QUALITY_MAP][1]} kHz</p>
       </div>
     )
   } catch {

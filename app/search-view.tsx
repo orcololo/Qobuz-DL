@@ -100,7 +100,16 @@ const SearchView = () => {
           }
         })
     } else {
-      axios.get(`/api/get-music?q=${query}&offset=${results![searchField].items.length}`).then((response) => {
+      const loadMoreEndpoint = `/api/get-music?q=${query}&offset=${results![searchField].items.length}`
+      
+      
+      axios.get(loadMoreEndpoint).then((response) => {
+        console.log('📊 Internal API Full Response Data - LoadMore:', {
+          endpoint: loadMoreEndpoint,
+          responseData: response.data,
+          timestamp: new Date().toISOString()
+        })
+        
         if (response.status === 200) {
           let newResults = {
             ...results!,
@@ -272,9 +281,17 @@ const SearchView = () => {
               setSearchError('')
               const filter = filterData.find((filter) => filter.value === searchFieldInput) || filterData[0]
               try {
-                const response = await axios.get(
-                  `/api/${filter.searchRoute ? filter.searchRoute : 'get-music'}?q=${query}&offset=0`
-                )
+                const endpoint = `/api/${filter.searchRoute ? filter.searchRoute : 'get-music'}?q=${query}&offset=0`
+                
+                const response = await axios.get(endpoint)
+                
+                console.log('📊 Internal API Full Response Data - Search:', {
+                  endpoint,
+                  query,
+                  responseData: response.data,
+                  timestamp: new Date().toISOString()
+                })
+                
                 if (response.status === 200) {
                   setLoading(false)
                   if (searchField !== searchFieldInput) setSearchField(searchFieldInput as QobuzSearchFilters)

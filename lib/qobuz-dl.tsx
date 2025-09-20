@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { LucideIcon } from 'lucide-react'
+import { ENV_ERROR_MESSAGES } from './constants'
 
 let crypto: any
 let SocksProxyAgent: any
@@ -253,18 +254,24 @@ export async function search(query: string, limit: number = 10, offset: number =
   if (process.env.SOCKS5_PROXY) {
     proxyAgent = new SocksProxyAgent('socks5://' + process.env.SOCKS5_PROXY)
   }
-  const response = await axios.get(
-    process.env.CORS_PROXY ? process.env.CORS_PROXY + encodeURIComponent(url.toString()) : url.toString(),
-    {
-      headers: {
-        'x-app-id': process.env.QOBUZ_APP_ID!,
-        'x-user-auth-token': getRandomToken(),
-        'User-Agent': process.env.CORS_PROXY ? 'Qobuz-DL' : undefined
-      },
-      httpAgent: proxyAgent,
-      httpsAgent: proxyAgent
-    }
-  )
+  
+  const requestUrl = process.env.CORS_PROXY ? process.env.CORS_PROXY + encodeURIComponent(url.toString()) : url.toString()
+  
+  const response = await axios.get(requestUrl, {
+    headers: {
+      'x-app-id': process.env.QOBUZ_APP_ID!,
+      'x-user-auth-token': getRandomToken(),
+      'User-Agent': process.env.CORS_PROXY ? 'Qobuz-DL' : undefined
+    },
+    httpAgent: proxyAgent,
+    httpsAgent: proxyAgent
+  })
+  
+  console.log('📊 Qobuz API Full Response Data - Search:', {
+    endpoint: 'catalog/search',
+    responseData: response.data,
+    timestamp: new Date().toISOString()
+  })
   return {
     ...response.data,
     switchTo
@@ -289,18 +296,26 @@ export async function getDownloadURL(trackID: number, quality: string) {
   if (process.env.SOCKS5_PROXY) {
     proxyAgent = new SocksProxyAgent('socks5://' + process.env.SOCKS5_PROXY)
   }
-  const response = await axios.get(
-    process.env.CORS_PROXY ? process.env.CORS_PROXY + encodeURIComponent(url.toString()) : url.toString(),
-    {
-      headers: {
-        'x-app-id': process.env.QOBUZ_APP_ID!,
-        'x-user-auth-token': getRandomToken(),
-        'User-Agent': process.env.CORS_PROXY ? 'Qobuz-DL' : undefined
-      },
-      httpAgent: proxyAgent,
-      httpsAgent: proxyAgent
-    }
-  )
+  
+  const requestUrl = process.env.CORS_PROXY ? process.env.CORS_PROXY + encodeURIComponent(url.toString()) : url.toString()
+  
+  const response = await axios.get(requestUrl, {
+    headers: {
+      'x-app-id': process.env.QOBUZ_APP_ID!,
+      'x-user-auth-token': getRandomToken(),
+      'User-Agent': process.env.CORS_PROXY ? 'Qobuz-DL' : undefined
+    },
+    httpAgent: proxyAgent,
+    httpsAgent: proxyAgent
+  })
+  
+  console.log('📊 Qobuz API Full Response Data - GetDownloadURL:', {
+    endpoint: 'track/getFileUrl',
+    trackID,
+    responseData: response.data,
+    timestamp: new Date().toISOString()
+  })
+  
   return response.data.url
 }
 
@@ -313,18 +328,26 @@ export async function getAlbumInfo(album_id: string) {
   if (process.env.SOCKS5_PROXY) {
     proxyAgent = new SocksProxyAgent('socks5://' + process.env.SOCKS5_PROXY)
   }
-  const response = await axios.get(
-    process.env.CORS_PROXY ? process.env.CORS_PROXY + encodeURIComponent(url.toString()) : url.toString(),
-    {
-      headers: {
-        'x-app-id': process.env.QOBUZ_APP_ID!,
-        'x-user-auth-token': getRandomToken(),
-        'User-Agent': process.env.CORS_PROXY ? 'Qobuz-DL' : undefined
-      },
-      httpAgent: proxyAgent,
-      httpsAgent: proxyAgent
-    }
-  )
+  
+  const requestUrl = process.env.CORS_PROXY ? process.env.CORS_PROXY + encodeURIComponent(url.toString()) : url.toString()
+  
+  const response = await axios.get(requestUrl, {
+    headers: {
+      'x-app-id': process.env.QOBUZ_APP_ID!,
+      'x-user-auth-token': getRandomToken(),
+      'User-Agent': process.env.CORS_PROXY ? 'Qobuz-DL' : undefined
+    },
+    httpAgent: proxyAgent,
+    httpsAgent: proxyAgent
+  })
+  
+  console.log('📊 Qobuz API Full Response Data - GetAlbumInfo:', {
+    endpoint: 'album/get',
+    album_id,
+    responseData: response.data,
+    timestamp: new Date().toISOString()
+  })
+  
   return response.data
 }
 
@@ -347,18 +370,26 @@ export async function getArtistReleases(
   if (process.env.SOCKS5_PROXY) {
     proxyAgent = new SocksProxyAgent('socks5://' + process.env.SOCKS5_PROXY)
   }
-  const response = await axios.get(
-    process.env.CORS_PROXY ? process.env.CORS_PROXY + encodeURIComponent(url.toString()) : url.toString(),
-    {
-      headers: {
-        'x-app-id': process.env.QOBUZ_APP_ID!,
-        'x-user-auth-token': getRandomToken(),
-        'User-Agent': process.env.CORS_PROXY ? 'Qobuz-DL' : undefined
-      },
-      httpAgent: proxyAgent,
-      httpsAgent: proxyAgent
-    }
-  )
+  
+  const requestUrl = process.env.CORS_PROXY ? process.env.CORS_PROXY + encodeURIComponent(url.toString()) : url.toString()
+  
+  const response = await axios.get(requestUrl, {
+    headers: {
+      'x-app-id': process.env.QOBUZ_APP_ID!,
+      'x-user-auth-token': getRandomToken(),
+      'User-Agent': process.env.CORS_PROXY ? 'Qobuz-DL' : undefined
+    },
+    httpAgent: proxyAgent,
+    httpsAgent: proxyAgent
+  })
+  
+  console.log('📊 Qobuz API Full Response Data - GetArtistReleases:', {
+    endpoint: 'artist/getReleasesList',
+    artist_id,
+    responseData: response.data,
+    timestamp: new Date().toISOString()
+  })
+  
   return response.data
 }
 
@@ -373,14 +404,19 @@ export function formatDuration(seconds: number) {
 }
 
 export function testForRequirements() {
-  if (process.env.QOBUZ_APP_ID?.length === 0)
-    throw new Error('Deployment is missing QOBUZ_APP_ID environment variable.')
-  if (process.env.QOBUZ_AUTH_TOKENS?.length === 0)
-    throw new Error('Deployment is missing QOBUZ_AUTH_TOKENS environment variable.')
-  if (process.env.QOBUZ_SECRET?.length === 0)
-    throw new Error('Deployment is missing QOBUZ_SECRET environment variable.')
-  if (process.env.QOBUZ_API_BASE?.length === 0)
-    throw new Error('Deployment is missing QOBUZ_API_BASE environment variable.')
+  const requiredEnvVars = [
+    { key: 'QOBUZ_APP_ID', message: ENV_ERROR_MESSAGES.QOBUZ_APP_ID },
+    { key: 'QOBUZ_AUTH_TOKENS', message: ENV_ERROR_MESSAGES.QOBUZ_AUTH_TOKENS },
+    { key: 'QOBUZ_SECRET', message: ENV_ERROR_MESSAGES.QOBUZ_SECRET },
+    { key: 'QOBUZ_API_BASE', message: ENV_ERROR_MESSAGES.QOBUZ_API_BASE }
+  ]
+
+  for (const { key, message } of requiredEnvVars) {
+    if (!process.env[key] || process.env[key]?.length === 0) {
+      throw new Error(message)
+    }
+  }
+  
   return true
 }
 
@@ -392,7 +428,16 @@ export async function getFullAlbumInfo(
   if (fetchedAlbumData && (fetchedAlbumData as FetchedQobuzAlbum).id === (result as QobuzAlbum).id)
     return fetchedAlbumData
   setFetchedAlbumData(null)
+  
   const albumDataResponse = await axios.get('/api/get-album', { params: { album_id: (result as QobuzAlbum).id } })
+  
+  console.log('📊 Internal API Full Response Data - GetFullAlbumInfo:', {
+    endpoint: '/api/get-album',
+    album_id: (result as QobuzAlbum).id,
+    responseData: albumDataResponse.data,
+    timestamp: new Date().toISOString()
+  })
+  
   setFetchedAlbumData(albumDataResponse.data.data)
   return albumDataResponse.data.data
 }
@@ -410,21 +455,28 @@ export async function getArtist(artistId: string): Promise<QobuzArtist | null> {
   if (process.env.SOCKS5_PROXY) {
     proxyAgent = new SocksProxyAgent('socks5://' + process.env.SOCKS5_PROXY)
   }
-  return (
-    await axios.get(
-      process.env.CORS_PROXY ? process.env.CORS_PROXY + encodeURIComponent(url.toString()) : url.toString(),
-      {
-        params: { artist_id: artistId, sort: 'release_date' },
-        headers: {
-          'x-app-id': process.env.QOBUZ_APP_ID!,
-          'x-user-auth-token': getRandomToken(),
-          'User-Agent': process.env.CORS_PROXY ? 'Qobuz-DL' : undefined
-        },
-        httpAgent: proxyAgent,
-        httpsAgent: proxyAgent
-      }
-    )
-  ).data
+  
+  const requestUrl = process.env.CORS_PROXY ? process.env.CORS_PROXY + encodeURIComponent(url.toString()) : url.toString()
+  
+  const response = await axios.get(requestUrl, {
+    params: { artist_id: artistId, sort: 'release_date' },
+    headers: {
+      'x-app-id': process.env.QOBUZ_APP_ID!,
+      'x-user-auth-token': getRandomToken(),
+      'User-Agent': process.env.CORS_PROXY ? 'Qobuz-DL' : undefined
+    },
+    httpAgent: proxyAgent,
+    httpsAgent: proxyAgent
+  })
+  
+  console.log('📊 Qobuz API Full Response Data - GetArtist:', {
+    endpoint: 'artist/page',
+    artistId,
+    responseData: response.data,
+    timestamp: new Date().toISOString()
+  })
+  
+  return response.data
 }
 
 export function parseArtistAlbumData(album: QobuzAlbum) {

@@ -4,10 +4,10 @@ import React, { useState } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
-import { ChevronDown, ChevronUp, DotIcon, List as QueueIcon, LucideIcon, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, DotIcon, List as QueueIcon, LucideIcon, X, RotateCcw } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Progress } from '../ui/progress'
-import { useStatusBar } from '@/lib/status-bar/context'
+import { useStatusBar, useRetryQueue } from '@/lib/status-bar/context'
 
 export type QueueProps = {
   title: string
@@ -29,6 +29,7 @@ export type StatusBarProps = {
 
 const StatusBar = () => {
   const { statusBar, setStatusBar } = useStatusBar()
+  const retryQueue = useRetryQueue()
   const [queueOpen, setQueueOpen] = useState<boolean>(false)
 
   return (
@@ -54,6 +55,23 @@ const StatusBar = () => {
                 >
                   <QueueIcon className='w-4 h-4' />
                 </Button>
+                {retryQueue.items.length > 0 && (
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    onClick={() => retryQueue.retryAll()}
+                    className='size-6 relative'
+                    title={`Retry ${retryQueue.items.length} failed downloads`}
+                    disabled={retryQueue.processing}
+                  >
+                    <RotateCcw className='w-4 h-4' />
+                    {retryQueue.items.length > 0 && (
+                      <div className='absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1'>
+                        {retryQueue.items.length}
+                      </div>
+                    )}
+                  </Button>
+                )}
                 <div className='flex flex-col justify-center text-center items-center overflow-x-hidden px-2'>
                   <CardTitle className='text-nowrap max-w-full truncate p-1'>
                     {statusBar.title || 'No items in the queue'}

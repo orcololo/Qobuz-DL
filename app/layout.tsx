@@ -7,7 +7,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { FaDiscord } from '@react-icons/all-files/fa/FaDiscord'
 import { FaGithub } from '@react-icons/all-files/fa/FaGithub'
 import { FFmpegProvider } from '@/lib/ffmpeg-provider'
+import { FolderOpenIcon, SearchIcon } from 'lucide-react'
 import { Inter } from 'next/font/google'
+import Link from 'next/link'
 import type { Metadata } from 'next'
 import { SettingsProvider } from '@/lib/settings-provider'
 import { StatusBarProvider } from '@/lib/status-bar/context'
@@ -64,6 +66,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                     <ChangelogDialog />
                   </div>
                   <div className='flex gap-2 items-center'>
+                    <Link href="/">
+                      <Button variant='outline' size='icon' title="Search Music">
+                        <SearchIcon className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link href="/downloads">
+                      <Button variant='outline' size='icon' title="View Downloads">
+                        <FolderOpenIcon className="h-4 w-4" />
+                      </Button>
+                    </Link>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant='outline' size='icon'>
